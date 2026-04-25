@@ -1,0 +1,129 @@
+services:
+
+  # ── MongoDB (NEW) ──────────────────────────────────────────
+  mongo:
+    image: mongo:6
+    container_name: crowdfundin-mongo
+
+    ports:
+      - "27017:27017"
+
+    volumes:
+      - mongo-data:/data/db
+
+    restart: unless-stopped
+    networks:
+      - devops-network
+
+
+  # ── Backend ────────────────────────────────────────────────
+  backend:
+    image: crowdfundin-backend:latest
+    container_name: crowdfundin-backend
+
+    ports:
+      - "5000:5000"
+
+    environment:
+      PORT: 5000
+      NODE_ENV: production
+
+      # ✅ CRITICAL FIX (no more Atlas/env issues)
+      MONGODB_URI: mongodb://mongo:27017/crowdfundin
+
+    volumes:
+      - backend-uploads:/app/uploads
+
+    restart: unless-stopped
+    networks:
+      - devops-network
+
+    depends_on:
+      mongo:
+        condition: service_started
+
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:5000/api/health"]
+      interval: 15s
+      timeout: 10s
+      retries: 6
+      start_period: 20s
+
+
+  # ── Frontend ───────────────────────────────────────────────
+  frontend:
+    image: crowdfundin-frontend:latest
+    container_name: crowdfundin-frontend
+
+    ports:
+      - "3000:8080"
+
+    restart: unless-stopped
+    networks:
+      - devops-network
+
+    depends_on:
+      backend:
+        condition: service_healthy
+
+
+  # ── Prometheus ─────────────────────────────────────────────
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: devops-prometheus
+
+    ports:
+      - "9090:9090"
+
+    volumes:
+      - prometheus-data:/prometheus
+      - ./prometheus:/etc/prometheus
+
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.retention.time=7d'
+
+    restart: unless-stopped
+    networks:
+      - devops-network
+
+    depends_on:
+      backend:
+        condition: service_healthy
+
+
+  # ── Grafana ────────────────────────────────────────────────
+  grafana:
+    image: grafana/grafana:latest
+    container_name: devops-grafana
+
+    ports:
+      - "3001:3000"
+
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: admin123
+      GF_USERS_ALLOW_SIGN_UP: false
+
+    volumes:
+      - grafana-data:/var/lib/grafana
+      - ./grafana/provisioning:/etc/grafana/provisioning
+      - ./grafana/dashboards:/var/lib/grafana/dashboards
+
+    restart: unless-stopped
+    networks:
+      - devops-network
+
+    depends_on:
+      - prometheus
+
+
+volumes:
+  backend-uploads:
+  prometheus-data:
+  grafana-data:
+  mongo-data:   # ✅ NEW
+
+networks:
+  devops-network:
+    driver: bridge

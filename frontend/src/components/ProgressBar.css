@@ -1,0 +1,33 @@
+.progress-container {
+  width: 100%;
+  height: 12px;
+  background-color: var(--border);
+  border-radius: var(--radius-full);
+  overflow: hidden;
+  position: relative;
+}
+
+.progress-bar-animated {
+  height: 100%;
+  background-color: var(--primary);
+  border-radius: var(--radius-full);
+  position: relative;
+  /* Animate width from 0 on mount */
+  animation: progressFill 800ms cubic-bezier(0.4, 0, 0.2, 1) 300ms both;
+}
+
+.progress-bar-animated::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0) 0%,
+    rgba(255, 255, 255, 0.2) 50%,
+    rgba(255, 255, 255, 0) 100%
+  );
+  animation: shimmer 2s infinite;
+}
